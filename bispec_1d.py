@@ -26,6 +26,15 @@ class SampleLine:
         self.kn, self.ps = self.create_ps(self.ps_power, self.ps_amp, N)
         self.ps_sqrt = np.sqrt(self.ps)
         
+    def create_ps(self, power, amp, ds):
+        kvec = np.fft.fftfreq(ds) * ds
+        if power > 0:
+            kvec[0] = np.inf
+        knorm = np.abs(kvec)
+
+        ps = amp/(knorm**power)
+        return knorm, ps
+    
     def create_sample_spec(self):
         rstart = self.rng.integers(0, self.dsize-self.N)
         line_subset = self.full_data[rstart:rstart+self.N]
@@ -41,6 +50,8 @@ class SampleLine:
             print("Imaginary part magnitude: ", np.mean(np.abs(ifspec.imag)))
         return dset
                   
+        
+    # Estimate power spectrum given realizations. Likely complete nonsense/garbage below:
     def basic_psest(self):
         dat = self.create_dsample(verbose=False)
         t1 = np.fft.fft(dat)
@@ -69,13 +80,5 @@ class SampleLine:
         return meaned_fest
                   
         
-    def create_ps(self, power, amp, ds):
-        kvec = np.fft.fftfreq(ds) * ds
-        if power > 0:
-            kvec[0] = np.inf
-        knorm = np.abs(kvec)
-
-        ps = amp/(knorm**power)
-        return knorm, ps
     
  
