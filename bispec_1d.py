@@ -1,11 +1,12 @@
 import numpy as np
 import scipy.stats as stats
 import scipy.signal as signal
+import scipy.linalg as linalg
 
 
 class SampleLine:
     
-    def __init__(self, N, periodic=False, power=-1, amp=-1):
+    def __init__(self, N, periodic=False, power=-1, amp=-1, nholes=1):
         self.N = N
         rng = np.random.default_rng()
         periodic = int(N/2)
@@ -27,8 +28,9 @@ class SampleLine:
             self.ps_amp = amp
         
         self.kn, self.ps = self.create_ps(self.ps_power, self.ps_amp, self.N)
+#         self.kn, self.ps = self.create_noise_ps(self.N)
         self.ps_sqrt = np.sqrt(self.ps)
-        self.mask = self.create_mask()
+        self.mask = self.create_mask(nholes)
         
     def create_ps(self, power, amp, ds):
         kvec = np.fft.fftfreq(ds) * ds
@@ -38,6 +40,14 @@ class SampleLine:
         knorm = knorm[:self.dsize]
 
         ps = amp/(knorm**power)
+        return knorm, ps
+    
+    def create_noise_ps(self, ds):
+        kvec = np.fft.fftfreq(ds) * ds
+        knorm = np.abs(kvec)
+        knorm = knorm[:self.dsize]
+
+        ps = np.ones_like(knorm)*self.rng.standard_normal()**2
         return knorm, ps
     
     def create_sample_spec(self):
@@ -65,11 +75,23 @@ class SampleLine:
         mask = np.ones(self.N)
         rstart = np.sort(self.rng.integers(0, self.N, n_holes))
         
-        hsize = 32
+        hsize = 50
         # For now make fixed hole size:
         for r in rstart:
             mask[r:r+hsize] = 0
         return mask
         
+    def rf_full(self, arr):
+        return np.concatenate((arr[:-1], np.conj(arr[::-1][:-1])))
     
- 
+    def mode_coupling(self, mk=None):
+        if mk==None:
+            mk = self.mask
+        pcl = np.fft.fft(mk)/len(mk)
+        len_fc = len(pcl)
+        Xi = np.zeros((len_fc, len_fc))
+        for l in range(len_fc):
+            for k in range(len_fc):
+                Xi[l,k] = (pcl[l-k]*np.conj(pcl[l-k])).real
+        xinv = linalg.inv(Xi)
+        return Xi, xinv
